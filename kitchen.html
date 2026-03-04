@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>從市場到廚房 - 廚房找找看</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #2c3e50; text-align: center; }
+        #score-board {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 10px;
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        /* 響應式圖片容器 */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 1000px; /* 可依需求調整最大寬度 */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #fff;
+        }
+        #game-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: crosshair;
+        }
+        /* 點擊熱區（預設隱藏，找到後顯示紅圈） */
+        .hotspot {
+            position: absolute;
+            cursor: pointer;
+            border-radius: 50%;
+            /* 測試時可解除下行註解以顯示點擊區域 */
+            /* border: 1px solid rgba(255,0,0,0.3); */ 
+        }
+        .hotspot.found {
+            border: 3px solid #e74c3c;
+            background-color: rgba(231, 76, 60, 0.2);
+            pointer-events: none; /* 找到後不可再點擊 */
+        }
+        /* 彈出視窗設計 */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: popIn 0.3s ease-out;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .modal-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; }
+        .modal-desc { font-size: 1.1rem; color: #555; margin-bottom: 20px; line-height: 1.5; }
+        .btn {
+            background: #3498db; color: white; border: none;
+            padding: 10px 20px; font-size: 1rem; border-radius: 5px;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .btn:hover { background: #2980b9; }
+        .correct { color: #27ae60; }
+        .incorrect { color: #e74c3c; }
+    </style>
+</head>
+<body>
+
+    <h1>廚房找找看：找出20個錯誤或可改善的地方</h1>
+    <div id="score-board">已找到：<span id="score">0</span> / 20</div>
+
+    <div id="game-container">
+        <img src="kitchen.png" alt="廚房場景" id="kitchen-bg">
+        </div>
+
+    <div id="modal">
+        <div class="modal-content">
+            <div id="modal-title" class="modal-title"></div>
+            <div id="modal-desc" class="modal-desc"></div>
+            <button class="btn" onclick="closeModal()">繼續尋找</button>
+        </div>
+    </div>
+
+    <script>
+        // 錯誤點位資料 (x, y, w, h 為百分比，確保響應式)
+        // 這些座標是根據圖片比例估算的，若有偏移可以微調 x, y, w, h 的數值
+        const mistakes = [
+            { id: 1, text: "沒戴烹飪帽", x: 4, y: 47, w: 8, h: 10 },
+            { id: 2, text: "沒戴口罩", x: 6, y: 55, w: 5, h: 5 },
+            { id: 3, text: "沒穿圍裙", x: 3, y: 60, w: 8, h: 15 },
+            { id: 4, text: "手上戴手錶", x: 10, y: 65, w: 4, h: 6 },
+            { id: 5, text: "沒穿透明無粉手套", x: 6, y: 69, w: 5, h: 6 },
+            { id: 6, text: "生熟食不分", x: 12, y: 66, w: 6, h: 8 },
+            { id: 7, text: "一手拿著菜刀，一邊聊天揮舞", x: 19, y: 45, w: 8, h: 12 },
+            { id: 8, text: "手上沒戴隔熱手套", x: 26, y: 43, w: 6, h: 10 },
+            { id: 9, text: "洗鍋子時水開太大，水花四濺", x: 32, y: 58, w: 12, h: 15 },
+            { id: 10, text: "抹布很髒在滴水並亂放", x: 30, y: 68, w: 6, h: 8 },
+            { id: 11, text: "洗碗槽附近地面有亂丟的果皮、菜葉", x: 17, y: 84, w: 22, h: 12 },
+            { id: 12, text: "冰箱食材堆放過滿", x: 69, y: 28, w: 6, h: 20 },
+            { id: 13, text: "瓦斯爐火很大，湯溢出來", x: 59, y: 51, w: 8, h: 10 },
+            { id: 14, text: "窗戶全部緊閉", x: 79, y: 22, w: 18, h: 25 },
+            { id: 15, text: "沙拉油放在有火的瓦斯爐旁邊", x: 84, y: 53, w: 4, h: 8 },
+            { id: 16, text: "鍋子油爆(水分未乾就放油)", x: 87, y: 53, w: 6, h: 8 },
+            { id: 17, text: "木砧板沒洗已經發霉，蒼蠅飛舞", x: 92, y: 47, w: 5, h: 12 },
+            { id: 18, text: "桶裝瓦斯倒放", x: 87, y: 70, w: 12, h: 10 },
+            { id: 19, text: "拖把溼答答的滴水在地上", x: 71, y: 72, w: 7, h: 18 },
+            { id: 20, text: "地上有一灘水", x: 84, y: 84, w: 14, h: 10 }
+        ];
+
+        let foundCount = 0;
+        const container = document.getElementById('game-container');
+        const bgImage = document.getElementById('kitchen-bg');
+
+        // 初始化熱區
+        mistakes.forEach(mistake => {
+            const div = document.createElement('div');
+            div.className = 'hotspot';
+            div.style.left = mistake.x + '%';
+            div.style.top = mistake.y + '%';
+            div.style.width = mistake.w + '%';
+            div.style.height = mistake.h + '%';
+            
+            // 點擊正確的熱區
+            div.addEventListener('click', function(e) {
+                e.stopPropagation(); // 防止觸發背景的答錯事件
+                if(!this.classList.contains('found')) {
+                    this.classList.add('found');
+                    foundCount++;
+                    document.getElementById('score').innerText = foundCount;
+                    showModal(true, mistake.text);
+                    
+                    if(foundCount === 20) {
+                        setTimeout(() => alert("恭喜你！找出了所有需要改善的地方！"), 500);
+                    }
+                }
+            });
+            container.appendChild(div);
+        });
+
+        // 點擊背景（答錯）
+        bgImage.addEventListener('click', function(e) {
+            showModal(false, "這裡看起來很正常喔，再找找看其他地方吧！");
+        });
+
+        // 顯示彈窗
+        function showModal(isCorrect, text) {
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+            
+            if(isCorrect) {
+                title.innerHTML = "🎉 答對了！";
+                title.className = "modal-title correct";
+            } else {
+                title.innerHTML = "❌ 答錯了！";
+                title.className = "modal-title incorrect";
+            }
+            desc.innerText = text;
+            modal.style.display = 'flex';
+        }
+
+        // 關閉彈窗
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
