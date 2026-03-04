@@ -25,10 +25,11 @@
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
+        /* 照片加大 */
         #game-container {
             position: relative;
             width: 100%;
-            max-width: 1400px;
+            max-width: 1400px; /* 放寬最大寬度，讓照片更大 */
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             border-radius: 8px;
             overflow: hidden;
@@ -45,32 +46,14 @@
             cursor: pointer;
             border-radius: 50%;
         }
+        /* 找到後的紅圈樣式 */
         .hotspot.found {
             border: 4px solid #e74c3c;
             background-color: rgba(231, 76, 60, 0.2);
+            /* 注意：這裡不加 pointer-events: none，讓它可以再次被點擊回顧 */
         }
         
-        .mistake-label {
-            position: absolute;
-            background-color: rgba(255, 255, 255, 0.95);
-            color: #c0392b;
-            font-weight: bold;
-            padding: 4px 8px;
-            border: 2px solid #e74c3c;
-            border-radius: 6px;
-            font-size: clamp(12px, 1.2vw, 18px); 
-            pointer-events: none;
-            z-index: 50; /* 確保文字標籤在最上層 */
-            transform: translate(-50%, -50%);
-            white-space: nowrap;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            animation: fadeIn 0.5s ease-in;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translate(-50%, -30%); }
-            to { opacity: 1; transform: translate(-50%, -50%); }
-        }
-
+        /* 彈出視窗設計 */
         #modal {
             display: none;
             position: fixed;
@@ -87,7 +70,7 @@
             padding: 40px 30px;
             border-radius: 12px;
             text-align: center;
-            max-width: 600px;
+            max-width: 600px; /* 視窗變寬以容納大字體 */
             width: 100%;
             box-shadow: 0 5px 25px rgba(0,0,0,0.5);
             animation: popIn 0.3s ease-out;
@@ -97,9 +80,11 @@
             100% { transform: scale(1); opacity: 1; }
         }
         
+        /* 字體全面放大 */
         .modal-title { font-size: 2rem; font-weight: bold; margin-bottom: 15px; }
         .modal-desc { font-size: 1.8rem; color: #333; margin-bottom: 30px; line-height: 1.5; font-weight: bold;}
         
+        /* 選擇題按鈕樣式 */
         .options-container {
             display: flex;
             flex-direction: column;
@@ -113,6 +98,7 @@
         }
         .option-btn:hover { background: #e2e6ea; border-color: #3498db; }
         
+        /* 一般按鈕樣式 */
         .btn {
             background: #3498db; color: white; border: none;
             padding: 15px 30px; font-size: 1.5rem; border-radius: 8px;
@@ -122,7 +108,6 @@
         
         .correct-text { color: #27ae60; }
         .incorrect-text { color: #e74c3c; }
-        .win-text { color: #f39c12; }
     </style>
 </head>
 <body>
@@ -135,36 +120,37 @@
     </div>
 
     <div id="modal">
-        <div class="modal-content" id="modal-body"></div>
+        <div class="modal-content" id="modal-body">
+            </div>
     </div>
 
     <script>
-        // 點擊區域座標與選項設定
+        // 資料集：包含座標、正確文字、以及三個選項 (ans為正確選項的索引值 0, 1, 2)
         const mistakes = [
-            { id: 1, text: "沒戴烹飪帽", x: 4, y: 46, w: 8, h: 8, z: 2, options: ["沒戴烹飪帽", "頭髮沒綁好", "沒戴耳機"], ans: 0 },
-            { id: 2, text: "沒戴口罩", x: 6, y: 53, w: 5, h: 5, z: 10, options: ["在偷吃東西", "沒戴口罩", "沒說話"], ans: 1 },
-            { id: 3, text: "沒穿圍裙", x: 3, y: 56, w: 10, h: 18, z: 1, options: ["衣服顏色不對", "忘記扣釦子", "沒穿圍裙"], ans: 2 },
-            { id: 4, text: "手上戴手錶", x: 10, y: 64, w: 4, h: 6, z: 10, options: ["手上戴手錶", "手指受傷", "手錶太舊"], ans: 0 },
-            { id: 5, text: "沒穿透明無粉手套", x: 5, y: 67, w: 8, h: 8, z: 5, options: ["手洗得不夠乾淨", "沒穿透明無粉手套", "指甲太長"], ans: 1 },
-            { id: 6, text: "生熟食不分", x: 12, y: 66, w: 6, h: 8, z: 1, options: ["生熟食不分", "砧板顏色不好看", "蔬菜洗不乾淨"], ans: 0 },
-            { id: 7, text: "一手拿著菜刀，一邊聊天揮舞", x: 19, y: 45, w: 8, h: 12, z: 1, options: ["切菜速度太慢", "菜刀太鈍了", "拿著菜刀聊天揮舞"], ans: 2 },
-            { id: 8, text: "手上沒戴隔熱手套", x: 26, y: 43, w: 6, h: 10, z: 1, options: ["手上沒戴隔熱手套", "烤箱溫度太低", "食物烤焦了"], ans: 0 },
-            { id: 9, text: "洗鍋子時水開太大，水花四濺", x: 32, y: 58, w: 12, h: 15, z: 1, options: ["水槽塞住了", "水開太大水花四濺", "沒有用洗碗精"], ans: 1 },
-            { id: 10, text: "抹布很髒在滴水並亂放", x: 30, y: 68, w: 6, h: 8, z: 1, options: ["抹布顏色太深", "抹布很髒滴水並亂放", "抹布太小條"], ans: 1 },
-            { id: 11, text: "洗碗槽附近地面有亂丟的果皮、菜葉", x: 17, y: 84, w: 22, h: 12, z: 1, options: ["地板材質不防滑", "忘記放垃圾桶", "地面亂丟果皮菜葉"], ans: 2 },
-            { id: 12, text: "冰箱食材堆放過滿", x: 69, y: 28, w: 6, h: 20, z: 1, options: ["冰箱食材堆放過滿", "冰箱門壞掉了", "冰箱沒有插電"], ans: 0 },
-            { id: 13, text: "瓦斯爐火很大，湯溢出來", x: 59, y: 51, w: 8, h: 10, z: 1, options: ["鍋蓋沒有蓋好", "火太大湯溢出來", "湯煮得太少了"], ans: 1 },
-            { id: 14, text: "窗戶全部緊閉", x: 79, y: 22, w: 18, h: 25, z: 1, options: ["窗戶全部緊閉", "玻璃沒有擦乾淨", "窗簾沒有拉上"], ans: 0 },
-            { id: 15, text: "沙拉油放在有火的瓦斯爐旁邊", x: 84, y: 53, w: 4, h: 8, z: 5, options: ["油瓶蓋子沒蓋", "沙拉油放在火源旁", "油的品牌不對"], ans: 1 },
-            { id: 16, text: "鍋子油爆(水分未乾就放油)", x: 87, y: 53, w: 6, h: 8, z: 1, options: ["水分未乾就放油導致油爆", "鍋子材質不好", "炒菜沒有加鹽"], ans: 0 },
-            { id: 17, text: "木砧板沒洗已經發霉，蒼蠅飛舞", x: 92, y: 47, w: 5, h: 12, z: 1, options: ["砧板放在桌邊危險", "砧板發霉且有蒼蠅", "砧板切錯面"], ans: 1 },
-            { id: 18, text: "桶裝瓦斯倒放", x: 87, y: 70, w: 12, h: 10, z: 1, options: ["桶裝瓦斯顏色不對", "桶裝瓦斯沒有氣了", "桶裝瓦斯倒放"], ans: 2 },
-            { id: 19, text: "拖把溼答答的滴水在地上", x: 71, y: 72, w: 7, h: 18, z: 1, options: ["拖把溼答答的在滴水", "拖把柄太短了", "拖把放錯位置"], ans: 0 },
-            { id: 20, text: "地上有一灘水", x: 84, y: 84, w: 14, h: 10, z: 1, options: ["地板磁磚破裂", "地上有一灘水", "地板顏色不均勻"], ans: 1 }
+            { id: 1, text: "沒戴烹飪帽", x: 4, y: 47, w: 8, h: 10, options: ["沒戴烹飪帽", "頭髮沒綁好", "沒戴耳機"], ans: 0 },
+            { id: 2, text: "沒戴口罩", x: 6, y: 55, w: 5, h: 5, options: ["在偷吃東西", "沒戴口罩", "沒說話"], ans: 1 },
+            { id: 3, text: "沒穿圍裙", x: 3, y: 60, w: 8, h: 15, options: ["衣服顏色不對", "忘記扣釦子", "沒穿圍裙"], ans: 2 },
+            { id: 4, text: "手上戴手錶", x: 10, y: 65, w: 4, h: 6, options: ["手上戴手錶", "手指受傷", "手錶太舊"], ans: 0 },
+            { id: 5, text: "沒穿透明無粉手套", x: 6, y: 69, w: 5, h: 6, options: ["手洗得不夠乾淨", "沒穿透明無粉手套", "指甲太長"], ans: 1 },
+            { id: 6, text: "生熟食不分", x: 12, y: 66, w: 6, h: 8, options: ["生熟食不分", "砧板顏色不好看", "蔬菜洗不乾淨"], ans: 0 },
+            { id: 7, text: "一手拿著菜刀，一邊聊天揮舞", x: 19, y: 45, w: 8, h: 12, options: ["切菜速度太慢", "菜刀太鈍了", "拿著菜刀聊天揮舞"], ans: 2 },
+            { id: 8, text: "手上沒戴隔熱手套", x: 26, y: 43, w: 6, h: 10, options: ["手上沒戴隔熱手套", "烤箱溫度太低", "食物烤焦了"], ans: 0 },
+            { id: 9, text: "洗鍋子時水開太大，水花四濺", x: 32, y: 58, w: 12, h: 15, options: ["水槽塞住了", "水開太大水花四濺", "沒有用洗碗精"], ans: 1 },
+            { id: 10, text: "抹布很髒在滴水並亂放", x: 30, y: 68, w: 6, h: 8, options: ["抹布顏色太深", "抹布很髒滴水並亂放", "抹布太小條"], ans: 1 },
+            { id: 11, text: "洗碗槽附近地面有亂丟的果皮、菜葉", x: 17, y: 84, w: 22, h: 12, options: ["地板材質不防滑", "忘記放垃圾桶", "地面亂丟果皮菜葉"], ans: 2 },
+            { id: 12, text: "冰箱食材堆放過滿", x: 69, y: 28, w: 6, h: 20, options: ["冰箱食材堆放過滿", "冰箱門壞掉了", "冰箱沒有插電"], ans: 0 },
+            { id: 13, text: "瓦斯爐火很大，湯溢出來", x: 59, y: 51, w: 8, h: 10, options: ["鍋蓋沒有蓋好", "火太大湯溢出來", "湯煮得太少了"], ans: 1 },
+            { id: 14, text: "窗戶全部緊閉", x: 79, y: 22, w: 18, h: 25, options: ["窗戶全部緊閉", "玻璃沒有擦乾淨", "窗簾沒有拉上"], ans: 0 },
+            { id: 15, text: "沙拉油放在有火的瓦斯爐旁邊", x: 84, y: 53, w: 4, h: 8, options: ["油瓶蓋子沒蓋", "沙拉油放在火源旁", "油的品牌不對"], ans: 1 },
+            { id: 16, text: "鍋子油爆(水分未乾就放油)", x: 87, y: 53, w: 6, h: 8, options: ["水分未乾就放油導致油爆", "鍋子材質不好", "炒菜沒有加鹽"], ans: 0 },
+            { id: 17, text: "木砧板沒洗已經發霉，蒼蠅飛舞", x: 92, y: 47, w: 5, h: 12, options: ["砧板放在桌邊危險", "砧板發霉且有蒼蠅", "砧板切錯面"], ans: 1 },
+            { id: 18, text: "桶裝瓦斯倒放", x: 87, y: 70, w: 12, h: 10, options: ["桶裝瓦斯顏色不對", "桶裝瓦斯沒有氣了", "桶裝瓦斯倒放"], ans: 2 },
+            { id: 19, text: "拖把溼答答的滴水在地上", x: 71, y: 72, w: 7, h: 18, options: ["拖把溼答答的在滴水", "拖把柄太短了", "拖把放錯位置"], ans: 0 },
+            { id: 20, text: "地上有一灘水", x: 84, y: 84, w: 14, h: 10, options: ["地板磁磚破裂", "地上有一灘水", "地板顏色不均勻"], ans: 1 }
         ];
 
         let foundCount = 0;
-        let currentActiveMistake = null;
+        let currentActiveMistake = null; // 記錄目前正在作答的錯誤點
         const container = document.getElementById('game-container');
         const bgImage = document.getElementById('kitchen-bg');
         const modal = document.getElementById('modal');
@@ -178,15 +164,16 @@
             div.style.top = mistake.y + '%';
             div.style.width = mistake.w + '%';
             div.style.height = mistake.h + '%';
-            div.style.zIndex = mistake.z; // 設定圖層高度
             
             div.addEventListener('click', function(e) {
-                e.stopPropagation();
-                currentActiveMistake = mistake;
+                e.stopPropagation(); // 防止點到背景
+                currentActiveMistake = mistake; // 記錄目前點擊的項目
                 
                 if(!this.classList.contains('found')) {
+                    // 如果還沒找到，跳出選擇題
                     showQuestion(mistake, this);
                 } else {
+                    // 如果已經找到了，跳出回顧視窗
                     showReview(mistake);
                 }
             });
@@ -203,9 +190,11 @@
             modal.style.display = 'flex';
         });
 
+        // 顯示選擇題
         function showQuestion(mistake, hotspotElement) {
             let optionsHtml = '';
             mistake.options.forEach((opt, index) => {
+                // 點擊選項時呼叫 checkAnswer 函數
                 optionsHtml += `<button class="option-btn" onclick="checkAnswer(${index}, ${mistake.ans}, this, '${mistake.text}')">${opt}</button>`;
             });
 
@@ -217,30 +206,30 @@
                 <button class="btn" style="background:#95a5a6;" onclick="closeModal()">取消，再看看</button>
             `;
             
+            // 將對應的 DOM 元素暫存，答對時要幫它加紅圈
             currentActiveMistake.element = hotspotElement; 
             modal.style.display = 'flex';
         }
 
+        // 檢查答案
         function checkAnswer(selectedIndex, correctIndex, btnElement, correctText) {
             if (selectedIndex === correctIndex) {
+                // 答對了
                 currentActiveMistake.element.classList.add('found');
                 foundCount++;
                 document.getElementById('score').innerText = foundCount;
                 
+                modalBody.innerHTML = `
+                    <div class="modal-title correct-text">🎉 答對了！</div>
+                    <div class="modal-desc">${correctText}</div>
+                    <button class="btn" onclick="closeModal()">繼續尋找</button>
+                `;
+                
                 if(foundCount === 20) {
-                    modalBody.innerHTML = `
-                        <div class="modal-title win-text">🏆 恭喜過關！</div>
-                        <div class="modal-desc">太厲害了！你找出了所有 20 個需要改善的地方！<br><br>點擊下方按鈕，在圖片上顯示所有解答，方便大家總結複習！</div>
-                        <button class="btn" style="background:#f39c12; font-size: 1.8rem;" onclick="finishGame()">查看總結圖</button>
-                    `;
-                } else {
-                    modalBody.innerHTML = `
-                        <div class="modal-title correct-text">🎉 答對了！</div>
-                        <div class="modal-desc">${correctText}</div>
-                        <button class="btn" onclick="closeModal()">繼續尋找</button>
-                    `;
+                    setTimeout(() => alert("太厲害了！你找出了所有需要改善的地方！"), 500);
                 }
             } else {
+                // 答錯了
                 modalBody.innerHTML = `
                     <div class="modal-title incorrect-text">❌ 哎呀，不對喔！</div>
                     <div class="modal-desc">再仔細觀察一下圖片。</div>
@@ -250,6 +239,7 @@
             }
         }
 
+        // 顯示已找到的回顧
         function showReview(mistake) {
             modalBody.innerHTML = `
                 <div class="modal-title correct-text">✅ 這裡的問題是：</div>
@@ -259,25 +249,9 @@
             modal.style.display = 'flex';
         }
 
+        // 關閉彈窗
         function closeModal() {
             modal.style.display = 'none';
-        }
-
-        function finishGame() {
-            closeModal();
-            mistakes.forEach(mistake => {
-                const label = document.createElement('div');
-                label.className = 'mistake-label';
-                let offsetY = 0;
-                if(mistake.id === 2 || mistake.id === 4) offsetY = -20; 
-                
-                const centerX = mistake.x + (mistake.w / 2);
-                const centerY = mistake.y + (mistake.h / 2);
-                label.style.left = centerX + '%';
-                label.style.top = `calc(${centerY}% + ${offsetY}px)`;
-                label.innerText = mistake.text;
-                container.appendChild(label);
-            });
         }
     </script>
 </body>
