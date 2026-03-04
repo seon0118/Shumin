@@ -25,11 +25,10 @@
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        /* 照片加大 */
         #game-container {
             position: relative;
             width: 100%;
-            max-width: 1400px; /* 放寬最大寬度，讓照片更大 */
+            max-width: 1400px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             border-radius: 8px;
             overflow: hidden;
@@ -46,14 +45,34 @@
             cursor: pointer;
             border-radius: 50%;
         }
-        /* 找到後的紅圈樣式 */
         .hotspot.found {
             border: 4px solid #e74c3c;
             background-color: rgba(231, 76, 60, 0.2);
-            /* 注意：這裡不加 pointer-events: none，讓它可以再次被點擊回顧 */
         }
         
-        /* 彈出視窗設計 */
+        /* 遊戲結束後顯示在圖片上的文字標籤 */
+        .mistake-label {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #c0392b;
+            font-weight: bold;
+            padding: 4px 8px;
+            border: 2px solid #e74c3c;
+            border-radius: 6px;
+            /* 使用 clamp 讓字體可以隨螢幕大小微調，最小12px，最大18px */
+            font-size: clamp(12px, 1.2vw, 18px); 
+            pointer-events: none; /* 避免擋住點擊 */
+            z-index: 10;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -30%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
         #modal {
             display: none;
             position: fixed;
@@ -70,7 +89,7 @@
             padding: 40px 30px;
             border-radius: 12px;
             text-align: center;
-            max-width: 600px; /* 視窗變寬以容納大字體 */
+            max-width: 600px;
             width: 100%;
             box-shadow: 0 5px 25px rgba(0,0,0,0.5);
             animation: popIn 0.3s ease-out;
@@ -80,11 +99,9 @@
             100% { transform: scale(1); opacity: 1; }
         }
         
-        /* 字體全面放大 */
         .modal-title { font-size: 2rem; font-weight: bold; margin-bottom: 15px; }
         .modal-desc { font-size: 1.8rem; color: #333; margin-bottom: 30px; line-height: 1.5; font-weight: bold;}
         
-        /* 選擇題按鈕樣式 */
         .options-container {
             display: flex;
             flex-direction: column;
@@ -98,7 +115,6 @@
         }
         .option-btn:hover { background: #e2e6ea; border-color: #3498db; }
         
-        /* 一般按鈕樣式 */
         .btn {
             background: #3498db; color: white; border: none;
             padding: 15px 30px; font-size: 1.5rem; border-radius: 8px;
@@ -108,6 +124,7 @@
         
         .correct-text { color: #27ae60; }
         .incorrect-text { color: #e74c3c; }
+        .win-text { color: #f39c12; }
     </style>
 </head>
 <body>
@@ -120,18 +137,17 @@
     </div>
 
     <div id="modal">
-        <div class="modal-content" id="modal-body">
-            </div>
+        <div class="modal-content" id="modal-body"></div>
     </div>
 
     <script>
-        // 資料集：包含座標、正確文字、以及三個選項 (ans為正確選項的索引值 0, 1, 2)
+        // 更新了 id 3 和 id 5 的範圍 (w跟h變大，範圍更廣)
         const mistakes = [
             { id: 1, text: "沒戴烹飪帽", x: 4, y: 47, w: 8, h: 10, options: ["沒戴烹飪帽", "頭髮沒綁好", "沒戴耳機"], ans: 0 },
             { id: 2, text: "沒戴口罩", x: 6, y: 55, w: 5, h: 5, options: ["在偷吃東西", "沒戴口罩", "沒說話"], ans: 1 },
-            { id: 3, text: "沒穿圍裙", x: 3, y: 60, w: 8, h: 15, options: ["衣服顏色不對", "忘記扣釦子", "沒穿圍裙"], ans: 2 },
+            { id: 3, text: "沒穿圍裙", x: 2, y: 55, w: 12, h: 22, options: ["衣服顏色不對", "忘記扣釦子", "沒穿圍裙"], ans: 2 },
             { id: 4, text: "手上戴手錶", x: 10, y: 65, w: 4, h: 6, options: ["手上戴手錶", "手指受傷", "手錶太舊"], ans: 0 },
-            { id: 5, text: "沒穿透明無粉手套", x: 6, y: 69, w: 5, h: 6, options: ["手洗得不夠乾淨", "沒穿透明無粉手套", "指甲太長"], ans: 1 },
+            { id: 5, text: "沒穿透明無粉手套", x: 4, y: 65, w: 10, h: 12, options: ["手洗得不夠乾淨", "沒穿透明無粉手套", "指甲太長"], ans: 1 },
             { id: 6, text: "生熟食不分", x: 12, y: 66, w: 6, h: 8, options: ["生熟食不分", "砧板顏色不好看", "蔬菜洗不乾淨"], ans: 0 },
             { id: 7, text: "一手拿著菜刀，一邊聊天揮舞", x: 19, y: 45, w: 8, h: 12, options: ["切菜速度太慢", "菜刀太鈍了", "拿著菜刀聊天揮舞"], ans: 2 },
             { id: 8, text: "手上沒戴隔熱手套", x: 26, y: 43, w: 6, h: 10, options: ["手上沒戴隔熱手套", "烤箱溫度太低", "食物烤焦了"], ans: 0 },
@@ -150,7 +166,7 @@
         ];
 
         let foundCount = 0;
-        let currentActiveMistake = null; // 記錄目前正在作答的錯誤點
+        let currentActiveMistake = null;
         const container = document.getElementById('game-container');
         const bgImage = document.getElementById('kitchen-bg');
         const modal = document.getElementById('modal');
@@ -166,14 +182,12 @@
             div.style.height = mistake.h + '%';
             
             div.addEventListener('click', function(e) {
-                e.stopPropagation(); // 防止點到背景
-                currentActiveMistake = mistake; // 記錄目前點擊的項目
+                e.stopPropagation();
+                currentActiveMistake = mistake;
                 
                 if(!this.classList.contains('found')) {
-                    // 如果還沒找到，跳出選擇題
                     showQuestion(mistake, this);
                 } else {
-                    // 如果已經找到了，跳出回顧視窗
                     showReview(mistake);
                 }
             });
@@ -190,11 +204,9 @@
             modal.style.display = 'flex';
         });
 
-        // 顯示選擇題
         function showQuestion(mistake, hotspotElement) {
             let optionsHtml = '';
             mistake.options.forEach((opt, index) => {
-                // 點擊選項時呼叫 checkAnswer 函數
                 optionsHtml += `<button class="option-btn" onclick="checkAnswer(${index}, ${mistake.ans}, this, '${mistake.text}')">${opt}</button>`;
             });
 
@@ -206,30 +218,32 @@
                 <button class="btn" style="background:#95a5a6;" onclick="closeModal()">取消，再看看</button>
             `;
             
-            // 將對應的 DOM 元素暫存，答對時要幫它加紅圈
             currentActiveMistake.element = hotspotElement; 
             modal.style.display = 'flex';
         }
 
-        // 檢查答案
         function checkAnswer(selectedIndex, correctIndex, btnElement, correctText) {
             if (selectedIndex === correctIndex) {
-                // 答對了
                 currentActiveMistake.element.classList.add('found');
                 foundCount++;
                 document.getElementById('score').innerText = foundCount;
                 
-                modalBody.innerHTML = `
-                    <div class="modal-title correct-text">🎉 答對了！</div>
-                    <div class="modal-desc">${correctText}</div>
-                    <button class="btn" onclick="closeModal()">繼續尋找</button>
-                `;
-                
                 if(foundCount === 20) {
-                    setTimeout(() => alert("太厲害了！你找出了所有需要改善的地方！"), 500);
+                    // 滿分通關畫面
+                    modalBody.innerHTML = `
+                        <div class="modal-title win-text">🏆 恭喜過關！</div>
+                        <div class="modal-desc">太厲害了！你找出了所有 20 個需要改善的地方！<br><br>點擊下方按鈕，在圖片上顯示所有解答，方便大家總結複習！</div>
+                        <button class="btn" style="background:#f39c12; font-size: 1.8rem;" onclick="finishGame()">查看總結圖</button>
+                    `;
+                } else {
+                    // 一般答對畫面
+                    modalBody.innerHTML = `
+                        <div class="modal-title correct-text">🎉 答對了！</div>
+                        <div class="modal-desc">${correctText}</div>
+                        <button class="btn" onclick="closeModal()">繼續尋找</button>
+                    `;
                 }
             } else {
-                // 答錯了
                 modalBody.innerHTML = `
                     <div class="modal-title incorrect-text">❌ 哎呀，不對喔！</div>
                     <div class="modal-desc">再仔細觀察一下圖片。</div>
@@ -239,7 +253,6 @@
             }
         }
 
-        // 顯示已找到的回顧
         function showReview(mistake) {
             modalBody.innerHTML = `
                 <div class="modal-title correct-text">✅ 這裡的問題是：</div>
@@ -249,9 +262,25 @@
             modal.style.display = 'flex';
         }
 
-        // 關閉彈窗
         function closeModal() {
             modal.style.display = 'none';
+        }
+
+        // 結束遊戲並顯示所有標籤
+        function finishGame() {
+            closeModal();
+            // 在圖片上畫出所有的文字標籤
+            mistakes.forEach(mistake => {
+                const label = document.createElement('div');
+                label.className = 'mistake-label';
+                // 將標籤定位在紅圈的中央
+                const centerX = mistake.x + (mistake.w / 2);
+                const centerY = mistake.y + (mistake.h / 2);
+                label.style.left = centerX + '%';
+                label.style.top = centerY + '%';
+                label.innerText = mistake.text;
+                container.appendChild(label);
+            });
         }
     </script>
 </body>
